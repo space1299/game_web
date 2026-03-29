@@ -137,8 +137,6 @@ export function UserReportPage() {
         if (cancelled) return;
 
         const nextStatus = job?.status || "queued";
-        setPhase(nextStatus);
-        setStatusMessage(job?.message || "");
 
         const jobReport = extractReportPayload(job);
         if (jobReport) {
@@ -163,7 +161,12 @@ export function UserReportPage() {
             setPhase("error");
             setErrorMessage("완료 상태를 확인했지만 최종 리포트를 불러오지 못했습니다.");
           }
-        } else if (nextStatus === "error") {
+        } else {
+          setPhase(nextStatus);
+          setStatusMessage(job?.message || "");
+        }
+
+        if (nextStatus === "error") {
           setErrorMessage(job?.error?.message || "리포트 생성에 실패했습니다.");
         }
       } catch (error) {
