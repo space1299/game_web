@@ -6,14 +6,14 @@ const DEFAULT_MMR = "DiamondPlus";
 const MMR_ORDER = ["Mythril", "Meteor", "Diamond", "Platinum", "Gold"];
 
 const columns = [
-  { key: "characterName_inkorean", label: "캐릭터", type: "string" },
+  { key: "characterNameKo", label: "캐릭터", type: "string" },
   { key: "pickrate", label: "픽률", type: "percent" },
-  { key: "avg_mmrGain", label: "평균 MMR", type: "number" },
-  { key: "win_rate", label: "승률", type: "percent" },
-  { key: "top3_rate", label: "Top3 비율", type: "percent" },
-  { key: "avg_gameRank", label: "평균 순위", type: "number" },
-  { key: "avg_damageToPlayer", label: "평균 딜량", type: "number" },
-  { key: "avg_teamKill", label: "평균 킬 관여", type: "number" },
+  { key: "avgMmrGain", label: "평균 MMR", type: "number" },
+  { key: "winRate", label: "승률", type: "percent" },
+  { key: "top3Rate", label: "Top3 비율", type: "percent" },
+  { key: "avgGameRank", label: "평균 순위", type: "number" },
+  { key: "avgDamageToPlayer", label: "평균 딜량", type: "number" },
+  { key: "avgTeamKill", label: "평균 킬 관여", type: "number" },
   { key: "pickCount", label: "게임 수", type: "integer" },
 ];
 
@@ -277,7 +277,7 @@ export function StatisticsPage() {
             <tbody>
               {sortedRows.length ? (
                 sortedRows.map((row, index) => (
-                  <tr key={`${row.characterName_inkorean || "character"}-${index}`}>
+                  <tr key={`${row.characterNameKo || "character"}-${index}`}>
                     <td>{index + 1}</td>
                     {columns.map((column) => (
                       <td key={column.key}>

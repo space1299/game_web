@@ -387,15 +387,15 @@ export function UserReportPage() {
                             <p>{formatNumber(item.pickCount)}게임 플레이</p>
                           </div>
                           <span className="report-card__badge">
-                            평균 MMR {formatNumber(item.avg_mmrGain, 1)}
+                            평균 MMR {formatNumber(item.avgMmrGain, 1)}
                           </span>
                         </div>
                         <div className="report-card__stats">
-                          <span>승률 {formatRate(item.win_rate)}</span>
-                          <span>Top3 {formatRate(item.top3_rate)}</span>
-                          <span>평균 순위 {formatNumber(item.avg_gameRank, 2)}</span>
-                          <span>평균 딜량 {formatNumber(item.avg_damageToPlayer)}</span>
-                          <span>평균 킬 관여 {formatNumber(item.avg_teamKill, 1)}</span>
+                          <span>승률 {formatRate(item.winRate)}</span>
+                          <span>Top3 {formatRate(item.top3Rate)}</span>
+                          <span>평균 순위 {formatNumber(item.avgGameRank, 2)}</span>
+                          <span>평균 딜량 {formatNumber(item.avgDamageToPlayer)}</span>
+                          <span>평균 킬 관여 {formatNumber(item.avgTeamKill, 1)}</span>
                         </div>
                       </article>
                     ))}
@@ -425,40 +425,40 @@ export function UserReportPage() {
                           <div>
                             <strong>{item?.key?.characterWeaponNameKo || "-"}</strong>
                             <p>
-                              유저 승률 {formatRate(item?.user?.win_rate)} / 티어 승률{" "}
-                              {formatRate(item?.tierAvg?.win_rate)}
+                              유저 승률 {formatRate(item?.user?.winRate)} / 티어 승률{" "}
+                              {formatRate(item?.tierAvg?.winRate)}
                             </p>
                           </div>
                         </div>
                         <div className="delta-grid">
                           <span
                             className={`delta-chip delta-chip--${getDeltaTone(
-                              item?.diff?.mmrGain_avg_delta,
+                              item?.diff?.mmrGainAvgDelta,
                             )}`}
                           >
-                            MMR {formatDelta(item?.diff?.mmrGain_avg_delta)}
+                            MMR {formatDelta(item?.diff?.mmrGainAvgDelta)}
                           </span>
                           <span
                             className={`delta-chip delta-chip--${getDeltaTone(
-                              item?.diff?.avg_rank_delta,
+                              item?.diff?.avgRankDelta,
                               true,
                             )}`}
                           >
-                            순위 {formatDelta(item?.diff?.avg_rank_delta)}
+                            순위 {formatDelta(item?.diff?.avgRankDelta)}
                           </span>
                           <span
                             className={`delta-chip delta-chip--${getDeltaTone(
-                              item?.diff?.win_rate_delta,
+                              item?.diff?.winRateDelta,
                             )}`}
                           >
-                            승률 {formatDelta((item?.diff?.win_rate_delta || 0) * 100)}%p
+                            승률 {formatDelta((item?.diff?.winRateDelta || 0) * 100)}%p
                           </span>
                           <span
                             className={`delta-chip delta-chip--${getDeltaTone(
-                              item?.diff?.avg_damage_delta,
+                              item?.diff?.avgDamageDelta,
                             )}`}
                           >
-                            딜량 {formatDelta(item?.diff?.avg_damage_delta)}
+                            딜량 {formatDelta(item?.diff?.avgDamageDelta)}
                           </span>
                         </div>
                       </article>
