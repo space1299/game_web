@@ -467,6 +467,23 @@ textarea {
   color: #f8fbff;
 }
 
+.tab-bar__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-bar__hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.tab-bar__hint--error {
+  color: #f87171;
+}
+
 .field-grid,
 .search-form {
   display: grid;

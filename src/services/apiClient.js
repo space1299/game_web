@@ -106,6 +106,70 @@ export function getHealth(options = {}) {
   return request("/health", { method: "GET", ...options });
 }
 
+export function refreshUserReport(nickname, options = {}) {
+  return request(`/api/user-report/refresh?nickname=${encodeURIComponent(nickname)}`, {
+    method: "POST",
+    ...options,
+  });
+}
+
+export function subscribeUserReportStream(nickname, { onEvent, onError, onClose } = {}) {
+  const controller = new AbortController();
+  const url = createApiUrl(`/api/user-report/stream?nickname=${encodeURIComponent(nickname)}`);
+
+  (async () => {
+    let response;
+    try {
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: "text/event-stream",
+          [getApiKeyHeader()]: getApiKey(),
+        },
+      });
+    } catch (err) {
+      if (err.name !== "AbortError") onError?.(err);
+      return;
+    }
+
+    if (!response.ok) {
+      onError?.(new ApiError(`Stream request failed with status ${response.status}`, response.status));
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          onClose?.();
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const raw = line.slice(6).trim();
+            if (!raw) continue;
+            try {
+              onEvent?.(JSON.parse(raw));
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") onError?.(err);
+    }
+  })();
+
+  return () => controller.abort();
+}
+
 export const apiContractNotes = [
   "Game_web reads data from Game_api only.",
   "Authentication is sent with the configured API key header on every request.",

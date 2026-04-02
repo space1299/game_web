@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { getUserReportStatus, requestUserReport } from "../../services/apiClient";
+import {
+  getUserReportStatus,
+  refreshUserReport,
+  requestUserReport,
+  subscribeUserReportStream,
+} from "../../services/apiClient";
 
 const POLLING_INTERVAL_MS = 3000;
-const FINAL_REPORT_RETRY_DELAY_MS = 1000;
-const FINAL_REPORT_RETRY_COUNT = 5;
 
 const reportTabs = [
   { id: "overview", label: "리포트 개요" },
@@ -90,89 +93,137 @@ function extractReportPayload(response) {
   return null;
 }
 
-function wait(ms) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
+function computeCooldownRemaining(cooldownEndsAt) {
+  if (!cooldownEndsAt) return null;
+  return Math.max(0, Math.ceil((new Date(cooldownEndsAt) - Date.now()) / 1000));
 }
 
 export function UserReportPage() {
   const [nicknameInput, setNicknameInput] = useState("");
   const [submittedNickname, setSubmittedNickname] = useState("");
-  const [jobId, setJobId] = useState("");
+  // phase: "idle" | "loading" | "queued" | "running" | "done" | "error"
   const [phase, setPhase] = useState("idle");
-  const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [report, setReport] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
 
-  async function fetchFinalReport(nickname, options = {}) {
-    const retries = options.retries ?? FINAL_REPORT_RETRY_COUNT;
-    const delayMs = options.delayMs ?? FINAL_REPORT_RETRY_DELAY_MS;
+  // Refresh state: tracks an active or blocked background refresh (coexists with done phase)
+  const [refreshJobId, setRefreshJobId] = useState(null);
+  // refreshJobStatus: null | "queued" | "running" | "error" | "cooldown"
+  const [refreshJobStatus, setRefreshJobStatus] = useState(null);
+  const [refreshError, setRefreshError] = useState("");
+  const [cooldownEndsAt, setCooldownEndsAt] = useState(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(null);
 
-    for (let attempt = 0; attempt < retries; attempt += 1) {
-      const response = await requestUserReport(nickname);
-      const nextReport = extractReportPayload(response);
-      if (nextReport) {
-        return nextReport;
-      }
+  // sseKey: null | { nickname, gen } — changing this value starts a new SSE subscription
+  const [sseKey, setSseKey] = useState(null);
+  // pollingEnabled: fallback when SSE fails and there is no report yet
+  const [pollingEnabled, setPollingEnabled] = useState(false);
 
-      if (attempt < retries - 1) {
-        await wait(delayMs);
-      }
-    }
-
-    return null;
-  }
-
+  // phaseRef lets SSE/polling callbacks read current phase without stale closure
+  const phaseRef = useRef(phase);
   useEffect(() => {
-    if (!jobId || !submittedNickname || (phase !== "queued" && phase !== "running")) {
-      return undefined;
-    }
+    phaseRef.current = phase;
+  }, [phase]);
+
+  // --- SSE subscription effect ---
+  useEffect(() => {
+    if (!sseKey) return;
+    const { nickname } = sseKey;
+
+    const cancel = subscribeUserReportStream(nickname, {
+      onEvent: async (event) => {
+        if (event.type !== "status") return;
+        const { jobStatus, error: jobError } = event;
+
+        if (jobStatus === "done") {
+          try {
+            const response = await requestUserReport(nickname);
+            const newReport = extractReportPayload(response);
+            if (newReport) setReport(newReport);
+            setRefreshJobId(null);
+            setRefreshJobStatus(null);
+            setRefreshError("");
+            setPhase("done");
+          } catch (err) {
+            const errMsg = err.detail || err.message || "리포트를 불러오지 못했습니다.";
+            if (phaseRef.current === "done") {
+              setRefreshJobStatus("error");
+              setRefreshError(errMsg);
+            } else {
+              setPhase("error");
+              setErrorMessage(errMsg);
+            }
+          }
+        } else if (jobStatus === "error") {
+          const errMsg = jobError || "리포트 생성에 실패했습니다.";
+          if (phaseRef.current === "done") {
+            setRefreshJobStatus("error");
+            setRefreshError(errMsg);
+          } else {
+            setPhase("error");
+            setErrorMessage(errMsg);
+          }
+        } else {
+          // queued or running: update status
+          setRefreshJobStatus(jobStatus);
+          if (phaseRef.current !== "done") {
+            setPhase(jobStatus);
+          }
+        }
+      },
+      onError: () => {
+        // SSE failed — fall back to polling only when waiting for first report
+        if (phaseRef.current !== "done") {
+          setPollingEnabled(true);
+        }
+      },
+    });
+
+    return cancel;
+  }, [sseKey]);
+
+  // --- Polling fallback effect (active only when SSE fails before first report) ---
+  useEffect(() => {
+    if (!pollingEnabled || !refreshJobId || !submittedNickname) return;
+    if (phase !== "queued" && phase !== "running") return;
 
     let cancelled = false;
     const timerId = window.setTimeout(async () => {
       try {
-        const job = await getUserReportStatus(jobId);
+        const job = await getUserReportStatus(refreshJobId);
         if (cancelled) return;
 
         const nextStatus = job?.status || "queued";
 
-        const jobReport = extractReportPayload(job);
-        if (jobReport) {
-          setReport(jobReport);
-          setPhase("done");
-          setErrorMessage("");
-          setStatusMessage("리포트가 준비되었습니다.");
-          return;
-        }
-
         if (nextStatus === "done") {
-          setStatusMessage("리포트를 확인하는 중입니다.");
-          const nextReport = await fetchFinalReport(submittedNickname);
+          const response = await requestUserReport(submittedNickname);
           if (cancelled) return;
-
-          if (nextReport) {
-            setReport(nextReport);
+          const finalReport = extractReportPayload(response);
+          if (finalReport) {
+            setReport(finalReport);
             setPhase("done");
-            setErrorMessage("");
-            setStatusMessage("리포트가 준비되었습니다.");
+            setRefreshJobId(null);
+            setRefreshJobStatus(null);
+            setPollingEnabled(false);
           } else {
             setPhase("error");
             setErrorMessage("완료 상태를 확인했지만 최종 리포트를 불러오지 못했습니다.");
+            setPollingEnabled(false);
           }
+        } else if (nextStatus === "error") {
+          setPhase("error");
+          setErrorMessage(job?.error?.message || "리포트 생성에 실패했습니다.");
+          setPollingEnabled(false);
         } else {
           setPhase(nextStatus);
-          setStatusMessage(job?.message || "");
-        }
-
-        if (nextStatus === "error") {
-          setErrorMessage(job?.error?.message || "리포트 생성에 실패했습니다.");
+          setRefreshJobStatus(nextStatus);
         }
       } catch (error) {
         if (cancelled) return;
         setPhase("error");
         setErrorMessage(error.detail || error.message || "리포트 상태를 확인하지 못했습니다.");
+        setPollingEnabled(false);
       }
     }, POLLING_INTERVAL_MS);
 
@@ -180,8 +231,31 @@ export function UserReportPage() {
       cancelled = true;
       window.clearTimeout(timerId);
     };
-  }, [jobId, phase, submittedNickname]);
+  }, [pollingEnabled, refreshJobId, phase, submittedNickname]);
 
+  // --- Cooldown countdown effect ---
+  useEffect(() => {
+    if (!cooldownEndsAt) {
+      setCooldownRemaining(null);
+      return;
+    }
+
+    const update = () => {
+      const r = computeCooldownRemaining(cooldownEndsAt);
+      setCooldownRemaining(r);
+      return r;
+    };
+
+    if (update() <= 0) return;
+
+    const interval = window.setInterval(() => {
+      if (update() <= 0) window.clearInterval(interval);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [cooldownEndsAt]);
+
+  // --- Submit handler ---
   async function onSubmit(event) {
     event.preventDefault();
 
@@ -193,37 +267,84 @@ export function UserReportPage() {
     }
 
     setSubmittedNickname(nickname);
-    setJobId("");
     setReport(null);
     setErrorMessage("");
-    setStatusMessage("");
     setPhase("loading");
     setActiveTab("overview");
+    setRefreshJobId(null);
+    setRefreshJobStatus(null);
+    setRefreshError("");
+    setCooldownEndsAt(null);
+    setSseKey(null);
+    setPollingEnabled(false);
 
     try {
-      const nextReport = await fetchFinalReport(nickname, { retries: 1 });
-      if (nextReport) {
-        setReport(nextReport);
-        setPhase("done");
-        setStatusMessage("리포트를 불러왔습니다.");
-        return;
-      }
-
       const response = await requestUserReport(nickname);
-      if (response?.jobId) {
-        setJobId(response.jobId);
-        setPhase(response.status || "queued");
-        setStatusMessage("리포트 생성을 요청했습니다. 완료될 때까지 확인 중입니다.");
-        return;
+      const reportPayload = extractReportPayload(response);
+      const jobId = response?.jobId;
+      const jobStatus = response?.jobStatus;
+
+      if (reportPayload) {
+        setReport(reportPayload);
+        setPhase("done");
       }
 
-      setPhase("error");
-      setErrorMessage("유저 리포트 API 응답 형식이 예상과 다릅니다.");
+      if (jobId) {
+        setRefreshJobId(jobId);
+        if (jobStatus === "queued" || jobStatus === "running") {
+          setRefreshJobStatus(jobStatus);
+          setSseKey({ nickname, gen: Date.now() });
+          if (!reportPayload) {
+            setPhase(jobStatus);
+          }
+        } else if (jobStatus === "error") {
+          setRefreshJobStatus("error");
+          setRefreshError(response.jobError || "");
+          if (!reportPayload) {
+            setPhase("error");
+            setErrorMessage(response.jobError || "리포트 생성에 실패했습니다.");
+          }
+        }
+      } else if (!reportPayload) {
+        setPhase("error");
+        setErrorMessage("유저 리포트 API 응답 형식이 예상과 다릅니다.");
+      }
     } catch (error) {
       setPhase("error");
       setErrorMessage(error.detail || error.message || "유저 리포트를 요청하지 못했습니다.");
     }
   }
+
+  // --- Manual refresh handler ---
+  async function onRefresh() {
+    if (!submittedNickname || phase !== "done") return;
+    if (refreshJobStatus === "queued" || refreshJobStatus === "running") return;
+
+    setRefreshError("");
+    setCooldownEndsAt(null);
+
+    try {
+      const response = await refreshUserReport(submittedNickname);
+
+      if (response.refreshStatus === "cooldown") {
+        setRefreshJobId(response.jobId);
+        setRefreshJobStatus("cooldown");
+        setCooldownEndsAt(response.cooldownEndsAt);
+      } else {
+        // "accepted" or "in_progress"
+        setRefreshJobId(response.jobId);
+        setRefreshJobStatus(response.jobStatus || "queued");
+        setSseKey({ nickname: submittedNickname, gen: Date.now() });
+      }
+    } catch (error) {
+      setRefreshError(error.detail || error.message || "새로고침 요청에 실패했습니다.");
+    }
+  }
+
+  // --- Derived values ---
+  const isRefreshActive = refreshJobStatus === "queued" || refreshJobStatus === "running";
+  const canRefresh =
+    phase === "done" && !isRefreshActive && refreshJobStatus !== "cooldown";
 
   const meta = report?.meta || {};
   const seasonSummary = report?.seasonSummary || {};
@@ -262,7 +383,7 @@ export function UserReportPage() {
         </form>
       </section>
 
-      {errorMessage ? (
+      {errorMessage && !report ? (
         <section className="notice-panel notice-panel--error">
           <strong>유저 리포트 요청에 실패했습니다.</strong>
           <p>{errorMessage}</p>
@@ -272,11 +393,11 @@ export function UserReportPage() {
       {(phase === "loading" || phase === "queued" || phase === "running") && !report ? (
         <section className="notice-panel">
           <strong>리포트를 생성하고 있습니다.</strong>
-          <p>{statusMessage || "백엔드 작업이 끝날 때까지 잠시만 기다려 주세요."}</p>
+          <p>백엔드 작업이 끝날 때까지 잠시만 기다려 주세요.</p>
         </section>
       ) : null}
 
-      {reportErrorMessage ? (
+      {report && reportErrorMessage ? (
         <section className="notice-panel notice-panel--error">
           <strong>리포트 데이터에 오류가 포함되어 있습니다.</strong>
           <p>{reportErrorMessage}</p>
@@ -296,6 +417,26 @@ export function UserReportPage() {
                 {tab.label}
               </button>
             ))}
+            <div className="tab-bar__actions">
+              {canRefresh ? (
+                <button type="button" className="tab-button" onClick={onRefresh}>
+                  새로고침
+                </button>
+              ) : null}
+              {isRefreshActive ? (
+                <span className="tab-bar__hint">갱신 중...</span>
+              ) : null}
+              {refreshJobStatus === "cooldown" && cooldownRemaining != null ? (
+                <span className="tab-bar__hint">
+                  {cooldownRemaining > 0
+                    ? `${cooldownRemaining}초 후 새로고침 가능`
+                    : "새로고침 가능"}
+                </span>
+              ) : null}
+              {refreshError ? (
+                <span className="tab-bar__hint tab-bar__hint--error">{refreshError}</span>
+              ) : null}
+            </div>
           </section>
 
           {activeTab === "overview" ? (
