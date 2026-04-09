@@ -19,6 +19,13 @@ export const games = [
         status: "운영 중",
         summary: "플레이어 검색과 리포트 결과를 확인합니다.",
       },
+      {
+        id: "patchnote",
+        label: "패치노트",
+        path: "/eternal-return/patchnote",
+        status: "운영 중",
+        summary: "버전별 패치노트 변경 내용을 확인합니다.",
+      },
     ],
   },
 ];

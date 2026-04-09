@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { App } from "../App";
 import { HomePage } from "../pages/home/HomePage";
+import { PatchnotePage } from "../pages/patchnote/PatchnotePage";
 import { StatisticsPage } from "../pages/statistics/StatisticsPage";
 import { UserReportPage } from "../pages/user-report/UserReportPage";
 
@@ -21,6 +22,10 @@ export const router = createBrowserRouter([
       {
         path: "eternal-return/user-report",
         element: <UserReportPage />,
+      },
+      {
+        path: "eternal-return/patchnote",
+        element: <PatchnotePage />,
       },
       {
         path: "*",

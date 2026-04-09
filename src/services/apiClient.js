@@ -170,6 +170,18 @@ export function subscribeUserReportStream(nickname, { onEvent, onError, onClose 
   return () => controller.abort();
 }
 
+export function getPatchnotes(limit, options = {}) {
+  const query = limit != null ? `?limit=${encodeURIComponent(limit)}` : "";
+  return request(`/api/patchnotes${query}`, { method: "GET", ...options });
+}
+
+export function getPatchnoteDetail(patchId, options = {}) {
+  return request(`/api/patchnotes/${encodeURIComponent(patchId)}`, {
+    method: "GET",
+    ...options,
+  });
+}
+
 export const apiContractNotes = [
   "Game_web reads data from Game_api only.",
   "Authentication is sent with the configured API key header on every request.",
