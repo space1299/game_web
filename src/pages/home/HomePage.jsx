@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 
+import erLogo from "../../assets/er_logo.png";
 import { games } from "../../data/games";
 
 export function HomePage() {
@@ -23,7 +24,13 @@ export function HomePage() {
             }}
           >
             <div className="game-card__head">
-              <span className="game-card__badge">{game.shortName}</span>
+              <span className="game-card__badge" style={{ padding: 0 }}>
+                {game.id === "eternal-return" ? (
+                  <img src={erLogo} alt={game.shortName} style={{ height: "40px", objectFit: "contain" }} />
+                ) : (
+                  game.shortName
+                )}
+              </span>
               <p className="eyebrow">{game.description}</p>
             </div>
             <h3>{game.name}</h3>
