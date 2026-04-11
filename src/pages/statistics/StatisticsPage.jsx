@@ -12,7 +12,7 @@ const columns = [
   { key: "winRate", label: "승률", type: "percent" },
   { key: "top3Rate", label: "Top3 비율", type: "percent" },
   { key: "avgGameRank", label: "평균 순위", type: "number" },
-  { key: "avgDamageToPlayer", label: "평균 딜량", type: "number" },
+  { key: "avgDamageToPlayer", label: "평균 딜량", type: "integer" },
   { key: "avgTeamKill", label: "평균 킬 관여", type: "number" },
   { key: "pickCount", label: "게임 수", type: "integer" },
 ];
@@ -101,6 +101,7 @@ export function StatisticsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [sortKey, setSortKey] = useState("pickrate");
   const [sortDirection, setSortDirection] = useState("desc");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +131,7 @@ export function StatisticsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryCount]);
 
   useEffect(() => {
     if (!selectedVersion) return;
@@ -165,7 +166,7 @@ export function StatisticsPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedVersion]);
+  }, [selectedVersion, retryCount]);
 
   const mmrOptions = buildMmrOptions(statisticsByMmr);
   const currentRows = Array.isArray(statisticsByMmr?.[selectedMmr])
@@ -188,15 +189,15 @@ export function StatisticsPage() {
       <section className="toolbar-panel">
         <div className="field-grid">
           <label className="field">
-            <span className="field__label">버전</span>
+            <span className="field__label">패치 버전</span>
             <select
               value={selectedVersion}
               onChange={(event) => setSelectedVersion(event.target.value)}
               disabled={loadingVersions || !versions.length}
             >
-              {versions.map((itemVersion) => (
+              {versions.map((itemVersion, index) => (
                 <option key={itemVersion} value={itemVersion}>
-                  {itemVersion}
+                  {itemVersion}{index === 0 ? " (최근)" : ""}
                 </option>
               ))}
             </select>
@@ -220,9 +221,16 @@ export function StatisticsPage() {
       </section>
 
       {errorMessage ? (
-        <section className="notice-panel notice-panel--error">
+        <section className="notice-panel notice-panel--error" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <strong>통계 요청에 실패했습니다.</strong>
-          <p>{errorMessage}</p>
+          <button
+            type="button"
+            className="button-primary"
+            style={{ minHeight: "36px", padding: "0 16px", fontSize: "0.85rem", margin: 0 }}
+            onClick={() => setRetryCount((c) => c + 1)}
+          >
+            다시 시도
+          </button>
         </section>
       ) : null}
 
@@ -240,31 +248,31 @@ export function StatisticsPage() {
               <tr>
                 <th className="data-table__rank">#</th>
                 {columns.map((column) => (
-                  <th key={column.key}>
+                  <th 
+                    key={column.key}
+                    className={sortKey === column.key ? "data-table__cell--active-sort" : ""}
+                  >
                     <button
                       type="button"
-                      className={`table-sort${
-                        sortKey === column.key ? " table-sort--active" : ""
-                      }`}
+                      className={`table-sort${sortKey === column.key ? " table-sort--active" : ""
+                        }`}
                       onClick={() => onSort(column.key)}
                     >
                       {column.label}
                       <span className="table-sort__arrows" aria-hidden="true">
                         <span
-                          className={`table-sort__arrow${
-                            sortKey === column.key && sortDirection === "asc"
-                              ? " table-sort__arrow--active"
-                              : ""
-                          }`}
+                          className={`table-sort__arrow${sortKey === column.key && sortDirection === "asc"
+                            ? " table-sort__arrow--active"
+                            : ""
+                            }`}
                         >
                           ▲
                         </span>
                         <span
-                          className={`table-sort__arrow${
-                            sortKey === column.key && sortDirection === "desc"
-                              ? " table-sort__arrow--active"
-                              : ""
-                          }`}
+                          className={`table-sort__arrow${sortKey === column.key && sortDirection === "desc"
+                            ? " table-sort__arrow--active"
+                            : ""
+                            }`}
                         >
                           ▼
                         </span>
@@ -276,22 +284,31 @@ export function StatisticsPage() {
             </thead>
             <tbody>
               {sortedRows.length ? (
-                sortedRows.map((row, index) => (
-                  <tr key={`${row.characterNameKo || "character"}-${index}`}>
-                    <td>{index + 1}</td>
-                    {columns.map((column) => (
-                      <td key={column.key}>
-                        {column.type === "string"
-                          ? row?.[column.key] || "-"
-                          : formatValue(row?.[column.key], column.type)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                sortedRows.map((row, index) => {
+                  const isHalfLine = index === Math.floor(sortedRows.length / 2) - 1;
+                  return (
+                    <tr 
+                      key={`${row.characterNameKo || "character"}-${index}`}
+                      className={isHalfLine ? "data-table__row--half-line" : ""}
+                    >
+                      <td>{index + 1}</td>
+                      {columns.map((column) => (
+                        <td 
+                          key={column.key}
+                          className={sortKey === column.key ? "data-table__cell--active-sort" : ""}
+                        >
+                          {column.type === "string"
+                            ? row?.[column.key] || "-"
+                            : formatValue(row?.[column.key], column.type)}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={columns.length + 1} className="data-table__empty">
-                    현재 선택한 조건의 통계가 없습니다.
+                    현재 선택한 조건의 통계가 없습니다, 조건을 확인 또는 변경해주세요.
                   </td>
                 </tr>
               )}

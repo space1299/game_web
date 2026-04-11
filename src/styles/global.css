@@ -90,8 +90,8 @@ textarea {
   font-size: 1rem;
   font-weight: 800;
   color: #f8fbff;
-  background: linear-gradient(135deg, #1d4ed8 0%, #60a5fa 100%);
-  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.24);
+  background: #000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .brand__title {
@@ -402,7 +402,7 @@ textarea {
   padding: 0 14px;
   border-radius: 14px;
   color: #eff6ff;
-  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  background: #000;
   font-weight: 800;
 }
 
@@ -569,11 +569,9 @@ textarea {
 }
 
 .table-panel {
-  border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 0 0 18px 18px;
   background: var(--panel);
   box-shadow: var(--shadow);
-  overflow: hidden;
 }
 
 .table-panel__header {
@@ -597,13 +595,10 @@ textarea {
   text-align: right;
 }
 
-.table-wrap {
-  overflow: auto;
-}
-
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
@@ -619,17 +614,68 @@ textarea {
 
 .data-table thead th {
   position: sticky;
-  top: 0;
-  background: rgba(15, 23, 42, 0.98);
-  z-index: 1;
+  top: 139px;
+  background: #2D1B4D;
+  color: #F1F5F9;
+  border-bottom: 1px solid #38bdf8;
+  z-index: 10;
+  padding: 0;
+  /* Remove generic padding to let inner button handle it seamlessly */
 }
+
+
 
 .data-table tbody tr:hover {
   background: rgba(30, 41, 59, 0.52);
 }
 
-.data-table__rank {
+.data-table__row--half-line td {
+  border-width: 0 0 2px 0;
+  border-style: solid;
+  /* Dark Brushed Steel matte texture */
+  border-image: repeating-linear-gradient(to right,
+      #2a2f3a 0px,
+      #434a58 2px,
+      #353a45 4px,
+      #1e222a 6px,
+      #3e4552 7px) 1;
+  box-shadow: inset 0 -3px 4px -2px rgba(0, 0, 0, 0.5);
+  /* Subtle inner shadow for embedded feel */
+}
+
+td.data-table__cell--active-sort {
+  background: rgba(168, 85, 247, 0.08);
+  /* Highlight color on row data */
+}
+
+.data-table thead th.data-table__cell--active-sort {
+  /* Blend the active highlight color with the header's base color so it doesn't become transparent and ruin the sticky effect */
+  background: linear-gradient(rgba(168, 85, 247, 0.08), rgba(168, 85, 247, 0.08)), #2D1B4D;
+  border-bottom-color: #A855F7;
+  /* Replace the default sky blue with vivid active purple of the exact same thickness */
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 18px;
+}
+
+.data-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 18px;
+}
+
+.data-table thead th.data-table__rank {
   width: 64px;
+  padding: 12px 10px;
+  text-align: center;
+  /* Restore padding specifically for rank column which lacks a button */
+}
+
+.data-table tbody td:first-child {
+  text-align: center;
 }
 
 .data-table__empty {
@@ -638,21 +684,30 @@ textarea {
 }
 
 .table-sort {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
   width: 100%;
-  padding: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px 10px;
+  margin: 0;
+  border-radius: 0;
   border: 0;
   background: transparent;
-  color: #cdd9e8;
+  color: #F1F5F9;
   font: inherit;
   cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.table-sort:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .table-sort--active {
-  color: #f8fbff;
+  color: #F1F5F9;
+  /* background and box-shadow removed -> moved to th.data-table__cell--active-sort overlay for full-cell highlight */
 }
 
 .table-sort__arrows {
@@ -666,11 +721,12 @@ textarea {
 
 .table-sort__arrow {
   opacity: 0.45;
+  transition: color 150ms ease, opacity 150ms ease;
 }
 
 .table-sort__arrow--active {
   opacity: 1;
-  color: #f8fbff;
+  color: #A855F7;
 }
 
 .key-value-list {

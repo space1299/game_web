@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
+import gpLogo from "../../assets/gp_logo.png";
 import { findGame, games } from "../../data/games";
 import { getHealth } from "../../services/apiClient";
 
@@ -49,8 +50,8 @@ export function Header() {
     <header className="topbar">
       <div className="shell__inner topbar__inner">
         <div className="brand">
-          <NavLink className="brand__mark" to="/" aria-label="게임 포털 홈">
-            GP
+          <NavLink className="brand__mark" to="/" aria-label="게임 포털 홈" style={{ padding: 0, overflow: 'hidden' }}>
+            <img src={gpLogo} alt="GP Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </NavLink>
           <div>
             <p className="eyebrow">게임 데이터 플랫폼</p>
@@ -60,9 +61,8 @@ export function Header() {
 
         <div className="header__controls">
           <span
-            className={`status-chip${
-              healthStatus === "disconnected" ? " status-chip--error" : ""
-            }`}
+            className={`status-chip${healthStatus === "disconnected" ? " status-chip--error" : ""
+              }`}
           >
             {getHealthLabel()}
           </span>
