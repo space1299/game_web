@@ -236,7 +236,7 @@ export function StatisticsPage() {
 
       {(loadingVersions || loadingStatistics) && !sortedRows.length ? (
         <section className="notice-panel">
-          <strong>통계를 불러오는 중입니다.</strong>
+          <strong className="animated-dots">통계를 불러오는 중입니다</strong>
           <p>버전과 티어별 데이터를 가져오고 있습니다.</p>
         </section>
       ) : null}
