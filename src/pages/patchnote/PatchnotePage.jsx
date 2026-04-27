@@ -25,74 +25,56 @@ function ChangeTypeBadge({ type }) {
   );
 }
 
-function FieldChanges({ fields }) {
-  if (!Array.isArray(fields) || !fields.length) return null;
-  return (
-    <table className="patchnote-fields">
-      <thead>
-        <tr>
-          <th>항목</th>
-          <th>이전</th>
-          <th>이후</th>
-        </tr>
-      </thead>
-      <tbody>
-        {fields.map((field, idx) => (
-          <tr key={`${field.fieldKey ?? idx}`}>
-            <td>{field.fieldLabel || field.fieldKey || "-"}</td>
-            <td className="patchnote-fields__before">{field.before ?? "-"}</td>
-            <td className="patchnote-fields__after">{field.after ?? "-"}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function EntryRow({ entry, changeType }) {
+function ChangeRow({ change }) {
   return (
     <div className="patchnote-entry">
       <div className="patchnote-entry__head">
-        <ChangeTypeBadge type={changeType} />
+        <ChangeTypeBadge type={change.changeType} />
         <span className="patchnote-entry__name">
-          {entry.displayName || entry.pk || "-"}
+          {change.fieldLabel || change.fieldKey || "-"}
         </span>
-        {entry.mergedKeys && entry.mergedKeys.length > 0 ? (
-          <span className="patchnote-entry__meta">
-            ({entry.mergedKeys.join(", ")})
-          </span>
-        ) : null}
       </div>
-      <FieldChanges fields={entry.fields} />
+      <table className="patchnote-fields">
+        <thead>
+          <tr>
+            <th>이전</th>
+            <th>이후</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="patchnote-fields__before">
+              {change.displayBefore ?? "-"}
+            </td>
+            <td className="patchnote-fields__after">
+              {change.displayAfter ?? "-"}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function GroupBlock({ group }) {
-  const label = group.keyLabel || group.key || "-";
-  const added = Array.isArray(group.added) ? group.added : [];
-  const removed = Array.isArray(group.removed) ? group.removed : [];
-  const modified = Array.isArray(group.modified) ? group.modified : [];
-  const total = added.length + removed.length + modified.length;
+function SectionBlock({ section }) {
+  const label = section.entityLabel || section.entityKey || "-";
+  const changes = Array.isArray(section.changes) ? section.changes : [];
 
   return (
     <div className="patchnote-group">
       <div className="patchnote-group__head">
         <strong className="patchnote-group__label">{label}</strong>
-        {group.key && group.key !== label ? (
-          <span className="patchnote-group__key">{group.key}</span>
+        {section.entityKey && section.entityKey !== label ? (
+          <span className="patchnote-group__key">{section.entityKey}</span>
         ) : null}
-        <span className="patchnote-group__count">{total}건</span>
+        <span className="patchnote-group__count">{changes.length}건</span>
       </div>
       <div className="patchnote-group__entries">
-        {added.map((entry, idx) => (
-          <EntryRow key={`added-${idx}`} entry={entry} changeType="added" />
-        ))}
-        {removed.map((entry, idx) => (
-          <EntryRow key={`removed-${idx}`} entry={entry} changeType="removed" />
-        ))}
-        {modified.map((entry, idx) => (
-          <EntryRow key={`modified-${idx}`} entry={entry} changeType="modified" />
+        {changes.map((change, idx) => (
+          <ChangeRow
+            key={`${change.sourceKey ?? "change"}-${change.fieldKey ?? idx}`}
+            change={change}
+          />
         ))}
       </div>
     </div>
@@ -167,19 +149,32 @@ function PatchnoteDetail({ patchId }) {
 
   const tabs = Array.isArray(detail.tabs) ? detail.tabs : [];
   const currentTab = tabs[activeTab];
-  const groups = Array.isArray(currentTab?.groups) ? currentTab.groups : [];
+  const sections = Array.isArray(currentTab?.sections) ? currentTab.sections : [];
+  const parseStatus = detail.parseStatus || "ok";
+  const hasErrorKeys =
+    Array.isArray(detail.errorKeys) && detail.errorKeys.length > 0;
 
   return (
     <div className="patchnote-detail">
       <div className="patchnote-detail__header">
-        <h2 className="patchnote-detail__title">{detail.patchId}</h2>
+        <h2 className="patchnote-detail__title">
+          {detail.titleKo || detail.patchId}
+        </h2>
         <div className="patchnote-detail__meta">
+          {detail.titleKo && detail.patchId ? (
+            <span className="patchnote-detail__patch-id">{detail.patchId}</span>
+          ) : null}
           <span className="patchnote-detail__date">
             {formatDetectedAt(detail.detectedAt)}
           </span>
-          {Array.isArray(detail.errorKeys) && detail.errorKeys.length > 0 ? (
+          {parseStatus === "error" ? (
             <span className="status-chip status-chip--error">
-              파싱 오류: {detail.errorKeys.join(", ")}
+              파싱 오류{hasErrorKeys ? `: ${detail.errorKeys.join(", ")}` : ""}
+            </span>
+          ) : null}
+          {parseStatus === "partial" ? (
+            <span className="status-chip status-chip--warning">
+              부분 파싱{hasErrorKeys ? `: ${detail.errorKeys.join(", ")}` : ""}
             </span>
           ) : null}
         </div>
@@ -190,20 +185,23 @@ function PatchnoteDetail({ patchId }) {
           <div className="tab-bar patchnote-detail__tabs">
             {tabs.map((tab, idx) => (
               <button
-                key={tab.tab ?? idx}
+                key={tab.tabKey ?? idx}
                 type="button"
                 className={`tab-button${activeTab === idx ? " tab-button--active" : ""}`}
                 onClick={() => setActiveTab(idx)}
               >
-                {tab.tab}
+                {tab.tabLabel || tab.tabKey || "-"}
               </button>
             ))}
           </div>
 
           <div className="patchnote-detail__body">
-            {groups.length > 0 ? (
-              groups.map((group, idx) => (
-                <GroupBlock key={group.key ?? idx} group={group} />
+            {sections.length > 0 ? (
+              sections.map((section, idx) => (
+                <SectionBlock
+                  key={section.entityKey ?? idx}
+                  section={section}
+                />
               ))
             ) : (
               <p className="empty-copy">이 탭에는 변경 내용이 없습니다.</p>
@@ -275,8 +273,11 @@ export function PatchnotePage() {
             ) : null}
             {list.map((item) => {
               const isActive = item.patchId === selectedPatchId;
-              const hasError =
-                Array.isArray(item.errorKeys) && item.errorKeys.length > 0;
+              const labels = Array.isArray(item.changedLabelsKo)
+                ? item.changedLabelsKo
+                : item.changedKeys;
+              const hasLabels = Array.isArray(labels) && labels.length > 0;
+              const parseStatus = item.parseStatus || "ok";
               return (
                 <button
                   key={item.patchId}
@@ -284,17 +285,26 @@ export function PatchnotePage() {
                   className={`patchnote-list__item${isActive ? " patchnote-list__item--active" : ""}`}
                   onClick={() => setSelectedPatchId(item.patchId)}
                 >
-                  <span className="patchnote-list__patch-id">{item.patchId}</span>
+                  <span className="patchnote-list__title">
+                    {item.titleKo || item.patchId}
+                  </span>
+                  {item.titleKo && item.patchId ? (
+                    <span className="patchnote-list__patch-id">
+                      {item.patchId}
+                    </span>
+                  ) : null}
                   <span className="patchnote-list__date">
                     {formatDetectedAt(item.detectedAt)}
                   </span>
-                  {Array.isArray(item.changedKeys) && item.changedKeys.length > 0 ? (
+                  {hasLabels ? (
                     <span className="patchnote-list__keys">
-                      {item.changedKeys.join(" · ")}
+                      {labels.join(" · ")}
                     </span>
                   ) : null}
-                  {hasError ? (
-                    <span className="patchnote-list__error-flag">파싱 오류 있음</span>
+                  {parseStatus !== "ok" ? (
+                    <span className="patchnote-list__error-flag">
+                      {parseStatus === "partial" ? "부분 파싱" : "파싱 오류 있음"}
+                    </span>
                   ) : null}
                 </button>
               );

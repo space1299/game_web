@@ -143,6 +143,12 @@ textarea {
   color: #fecaca;
 }
 
+.status-chip--warning {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(120, 53, 15, 0.28);
+  color: #fde68a;
+}
+
 .header-select {
   display: grid;
   gap: 6px;
@@ -952,7 +958,15 @@ td.data-table__cell--active-sort {
 
 .patchnote-list__patch-id {
   font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.patchnote-list__title {
+  font-weight: 700;
   font-size: 0.96rem;
+  color: var(--text);
 }
 
 .patchnote-list__date {
@@ -1006,6 +1020,12 @@ td.data-table__cell--active-sort {
 .patchnote-detail__date {
   font-size: 0.86rem;
   color: var(--muted);
+}
+
+.patchnote-detail__patch-id {
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-all;
 }
 
 .patchnote-detail__tabs {
