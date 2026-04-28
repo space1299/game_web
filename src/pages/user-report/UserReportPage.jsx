@@ -81,9 +81,9 @@ function getCompareItems(report) {
 function isReportPayload(value) {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      (value.meta || value.seasonSummary || value.characterSlices || value.characterCompare),
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    (value.meta || value.seasonSummary || value.characterSlices || value.characterCompare),
   );
 }
 
@@ -355,8 +355,8 @@ export function UserReportPage() {
   const compareItems = getCompareItems(report);
   const characterTrendItems = Array.isArray(report?.characterSlices?.items)
     ? [...report.characterSlices.items].sort(
-        (a, b) => Number(b?.pickCount || 0) - Number(a?.pickCount || 0),
-      )
+      (a, b) => Number(b?.pickCount || 0) - Number(a?.pickCount || 0),
+    )
     : [];
   const topCharacters = apiCharacterStats.slice(0, 3);
   const versionLabel =
@@ -392,8 +392,8 @@ export function UserReportPage() {
 
       {(phase === "loading" || phase === "queued" || phase === "running") && !report ? (
         <section className="notice-panel">
-          <strong>리포트를 생성하고 있습니다.</strong>
-          <p>백엔드 작업이 끝날 때까지 잠시만 기다려 주세요.</p>
+          <strong className="animated-dots">리포트를 생성하고 있습니다</strong>
+          <p>데이터 분석은 최대 10초 정도 소요될 수 있습니다, 잠시만 기다려 주세요.</p>
         </section>
       ) : null}
 

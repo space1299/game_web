@@ -183,7 +183,7 @@ function PatchnoteDetail({ patchId }) {
     return (
       <div className="patchnote-detail">
         <div className="notice-panel">
-          <strong>상세 정보를 불러오는 중입니다.</strong>
+          <strong className="animated-dots">상세 정보를 불러오는 중입니다</strong>
           <p>{patchId}</p>
         </div>
       </div>
@@ -336,7 +336,7 @@ export function PatchnotePage() {
 
       {loading && !list.length ? (
         <section className="notice-panel">
-          <strong>패치노트 목록을 불러오는 중입니다.</strong>
+          <strong className="animated-dots">패치노트 목록을 불러오는 중입니다</strong>
         </section>
       ) : null}
 
