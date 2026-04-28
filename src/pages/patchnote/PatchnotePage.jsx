@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { getPatchnoteDetail, getPatchnotes } from "../../services/apiClient";
+import {
+  getPatchnoteDetail,
+  getPatchnoteSummary,
+  getPatchnotes,
+} from "../../services/apiClient";
+import {
+  PatchnoteSummarySection,
+  toAnchorId,
+} from "./PatchnoteSummarySection";
 
 function formatDetectedAt(iso) {
   if (!iso) return "-";
@@ -11,6 +19,24 @@ function formatDetectedAt(iso) {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+function formatPatchnoteTitleDate(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function getPatchnoteListTitle(item) {
+  if (item.titleKo) return item.titleKo;
+  const titleDate = formatPatchnoteTitleDate(item.detectedAt);
+  if (titleDate) return `${titleDate} 패치노트`;
+  return "패치노트";
 }
 
 function ChangeTypeBadge({ type }) {
@@ -61,12 +87,9 @@ function SectionBlock({ section }) {
   const changes = Array.isArray(section.changes) ? section.changes : [];
 
   return (
-    <div className="patchnote-group">
+    <div id={toAnchorId(section.entityKey)} className="patchnote-group">
       <div className="patchnote-group__head">
         <strong className="patchnote-group__label">{label}</strong>
-        {section.entityKey && section.entityKey !== label ? (
-          <span className="patchnote-group__key">{section.entityKey}</span>
-        ) : null}
         <span className="patchnote-group__count">{changes.length}건</span>
       </div>
       <div className="patchnote-group__entries">
@@ -83,9 +106,12 @@ function SectionBlock({ section }) {
 
 function PatchnoteDetail({ patchId }) {
   const [detail, setDetail] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(0);
+  const [pendingScrollKey, setPendingScrollKey] = useState(null);
 
   useEffect(() => {
     if (!patchId) return;
@@ -93,9 +119,12 @@ function PatchnoteDetail({ patchId }) {
 
     async function loadDetail() {
       setLoading(true);
+      setSummaryLoading(true);
       setError("");
       setDetail(null);
+      setSummary(null);
       setActiveTab(0);
+      setPendingScrollKey(null);
 
       try {
         const data = await getPatchnoteDetail(patchId);
@@ -109,11 +138,38 @@ function PatchnoteDetail({ patchId }) {
       }
     }
 
+    async function loadSummary() {
+      try {
+        const data = await getPatchnoteSummary(patchId);
+        if (cancelled) return;
+        setSummary(data);
+      } catch (_) {
+        if (cancelled) return;
+        setSummary(null);
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    }
+
     loadDetail();
+    loadSummary();
     return () => {
       cancelled = true;
     };
   }, [patchId]);
+
+  useEffect(() => {
+    if (!pendingScrollKey) return undefined;
+
+    const frame = requestAnimationFrame(() => {
+      const section = document.getElementById(toAnchorId(pendingScrollKey));
+      if (!section) return;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      setPendingScrollKey(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, detail, pendingScrollKey]);
 
   if (!patchId) {
     return (
@@ -154,6 +210,21 @@ function PatchnoteDetail({ patchId }) {
   const hasErrorKeys =
     Array.isArray(detail.errorKeys) && detail.errorKeys.length > 0;
 
+  function handleSummaryEntitySelect(entityKey) {
+    if (!entityKey) return;
+
+    const targetTabIndex = tabs.findIndex((tab) =>
+      Array.isArray(tab.sections)
+        ? tab.sections.some((section) => section.entityKey === entityKey)
+        : false,
+    );
+
+    if (targetTabIndex >= 0 && targetTabIndex !== activeTab) {
+      setActiveTab(targetTabIndex);
+    }
+    setPendingScrollKey(entityKey);
+  }
+
   return (
     <div className="patchnote-detail">
       <div className="patchnote-detail__header">
@@ -179,6 +250,12 @@ function PatchnoteDetail({ patchId }) {
           ) : null}
         </div>
       </div>
+
+      <PatchnoteSummarySection
+        loading={summaryLoading}
+        onEntitySelect={handleSummaryEntitySelect}
+        summary={summary}
+      />
 
       {tabs.length > 0 ? (
         <>
@@ -286,13 +363,8 @@ export function PatchnotePage() {
                   onClick={() => setSelectedPatchId(item.patchId)}
                 >
                   <span className="patchnote-list__title">
-                    {item.titleKo || item.patchId}
+                    {getPatchnoteListTitle(item)}
                   </span>
-                  {item.titleKo && item.patchId ? (
-                    <span className="patchnote-list__patch-id">
-                      {item.patchId}
-                    </span>
-                  ) : null}
                   <span className="patchnote-list__date">
                     {formatDetectedAt(item.detectedAt)}
                   </span>

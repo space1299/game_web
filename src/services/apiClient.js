@@ -182,6 +182,13 @@ export function getPatchnoteDetail(patchId, options = {}) {
   });
 }
 
+export function getPatchnoteSummary(patchId, options = {}) {
+  return request(`/api/patchnotes/${encodeURIComponent(patchId)}/summary`, {
+    method: "GET",
+    ...options,
+  });
+}
+
 export const apiContractNotes = [
   "Game_web reads data from Game_api only.",
   "Authentication is sent with the configured API key header on every request.",
